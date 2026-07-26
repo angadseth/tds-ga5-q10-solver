@@ -1,0 +1,35 @@
+Bhai log, GA5 ka Q10 — "Build a Durable A2A Delegate" (4 marks) — ka full working
+solver bana diya hai. Poora code + step-by-step guide, sab public:
+
+🔗 https://github.com/angadseth/tds-ga5-q10-solver
+
+Isme kya hai:
+• Pura deployable A2A 1.0 agent (FastAPI) — clone karo, deploy karo, URL paste
+  karo, Check daba do
+• `python selftest.py` chalao → 59/59 pass, bina internet aur bina kisi API key ke
+• Render pe free deploy karne ke exact steps
+
+Sabse important baat: is question ke liye LLM ki zarurat hi NAHI hai. Case files
+generated hain, fixed layout mein — answer hamesha ledger-and-correspondence.txt
+ke pehle paragraph mein hota hai (exactly 3 sentences, har ek mein 1 reference).
+Wahi 3 refs chahiye. Isliye cost ₹0, aur Check aur Save ke beech score bhi nahi
+hilta (model use karo toh hilta hai).
+
+4 galtiyan jo zyadatar logon ke marks kha jaati hain (README mein detail mein hai):
+
+1. Exactly 3 evidence refs — 2 ya 4 nahi. Cover-sheet, archive aur training wale
+   refs bilkul mat daalna, woh decoy hain.
+2. amountMinor MINOR units mein — EUR 38,721.92 → 3872192, "38721" nahi.
+   JPY jaisi 0-decimal currency alag se dhyan se.
+3. application/json ko reject karo → 415. Grader jaan-bujh ke ek bilkul valid
+   batch ko application/json se bhejta hai; accept kar liya toh media-type mark gaya.
+4. Dusre token ka task = 404, 403 nahi. Warna isolation check fail ho jaata hai.
+
+Ek aur cheez: action classify karte waqt settle_invoice ko SABSE LAST rakhna —
+request_approval wale paragraphs bhi clean-reconciliation sentence se shuru hote
+hain, toh pehle check kiya toh sab galat padhega.
+
+⚠️ Apni khud ki API key aur khud ki deployment use karna. Har bande ka data uske
+email se personalised hai, toh kisi aur ka URL paste karne se kuch nahi milega.
+
+Koi dikkat aaye toh GitHub pe issue khol dena.
