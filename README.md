@@ -26,7 +26,7 @@ pip install -r requirements.txt
 python selftest.py
 ```
 
-You should see **`59 passed, 0 failed`**. That runs the entire graded flow
+You should see **`78 passed, 0 failed`**. That runs the entire graded flow
 offline — agent card, auth, media types, proposals, idempotency, conflicts,
 principal isolation, receipts, replay and the cancel race — with no network and
 no API key.
@@ -87,7 +87,7 @@ misread every one of them. Classify `settle_invoice` **last**.
 
 ---
 
-## 3. The four bugs that cost marks
+## 3. The five bugs that cost marks
 
 These are the ones that make the grader reject every proposal, which leaves
 `executions` empty and drops you to ~3.5/4 or lower.
@@ -104,6 +104,36 @@ These are the ones that make the grader reject every proposal, which leaves
 4. **Another principal's task is `404`, never `403`.** Each distinct Bearer
    token is a separate tenant. "Exists but forbidden" leaks the task's existence
    and fails isolation.
+5. **`GET /a2a/tasks` must be compact.** This is the one that bites hardest —
+   see below.
+
+### `ISOLATION_PROBE_UNAVAILABLE` — the 512 KiB trap
+
+> *Successful A2A responses must use JSON/A2A media types and stay at or below
+> 512 KiB.* … *A timeout, 5xx, malformed probe response, or **owner-list
+> failure** loses isolation marks.*
+
+A task's `history` keeps the initial message, and the initial message carries
+all twelve long case files. So **one** task serialises to roughly 300 KiB. The
+graded run is five core tasks plus a hidden audit task under one token — and if
+your `GET /a2a/tasks` returns the full Task document for each, the listing comes
+out at about **1.5 MiB**. The grader can't read it, so the isolation probe never
+runs and you get:
+
+```
+isolation 0.00/0.75 — ISOLATION_PROBE_UNAVAILABLE
+```
+
+Nothing is actually leaking. Your isolation logic is fine. The body is just too
+big. The fix is `compact_task()` in `a2a_agent.py`: the listing returns each
+Task's **identity, state, metadata and artifact descriptors**, with the history
+and the artifact payloads dropped. Measured on a realistic corpus, that takes
+the listing from **1589 KiB to 3.9 KiB**, while `GET /a2a/tasks/{id}` still
+returns the whole task (282 KiB, comfortably under the ceiling).
+
+There is also a `fit()` guard on every task response: if a body would ever
+cross the limit it sheds payloads rather than returning something oversized. It
+only engages above the limit, so a normal run is untouched.
 
 ---
 
@@ -197,6 +227,7 @@ message:send  (invoice-action-results, same taskId + contextId)
 | `executions` always empty | a proposal wasn't exact — usually 2 refs instead of 3, a decoy ref, or `amountMinor` off by 100× |
 | media-type mark fails | you accepted `application/json`; return **415** |
 | isolation mark fails | you returned 403 (or 200) for another token's task; return **404** |
+| `ISOLATION_PROBE_UNAVAILABLE` | your `GET /a2a/tasks` body is over 512 KiB — see section 3 |
 | replay/idempotency fails | you fingerprinted the whole request instead of the message, so `configuration` churn looked like a conflict |
 | score moves between Check and Save | you used a model — decide from the documents instead |
 | first grader request times out | free-tier cold start; warm the URL first |

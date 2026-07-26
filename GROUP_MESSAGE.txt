@@ -6,7 +6,7 @@ solver bana diya hai. Poora code + step-by-step guide, sab public:
 Isme kya hai:
 • Pura deployable A2A 1.0 agent (FastAPI) — clone karo, deploy karo, URL paste
   karo, Check daba do
-• `python selftest.py` chalao → 59/59 pass, bina internet aur bina kisi API key ke
+• `python selftest.py` chalao → 78/78 pass, bina internet aur bina kisi API key ke
 • Render pe free deploy karne ke exact steps
 
 Sabse important baat: is question ke liye LLM ki zarurat hi NAHI hai. Case files

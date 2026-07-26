@@ -275,6 +275,48 @@ late = {"messageId": "msg-" + uuid.uuid4().hex[:8], "role": "ROLE_USER",
 r = send(late)
 check("receipts after a cancel are refused", r.status_code == 409, r.status_code)
 
+print("\n--- size budget: the owner-list probe ---")
+# The graded run is five core tasks of twelve long packages plus a hidden audit
+# task, all under one Bearer token. A listing that echoes each task's history
+# blows the 512 KiB ceiling and is scored ISOLATION_PROBE_UNAVAILABLE.
+LIMIT = 512 * 1024
+BULK = ("\n\n" + ("Routine correspondence retained for chronology; this paragraph is "
+                  "repeated verbatim across the corpus and carries no decisive "
+                  "reference. ") * 60)
+actions = list(DECISIVE)
+for b in range(6):
+    pkgs = []
+    for i in range(12):
+        p = package(f"BIG-{b}-{i}", actions[i % 5], f"Vendor {i} Industrial Ltd",
+                    f"INV-80{b}{i:02d}", "EUR", "38,721.92")
+        for d in p["documents"]:
+            d["text"] += BULK
+        pkgs.append(p)
+    r = send(batch_message("big-%d" % b, {"batchId": f"BIG-BATCH-{b}",
+                                          "policyRevision": "2026-05-01",
+                                          "packages": pkgs}))
+    check(f"large batch {b} accepted", r.status_code == 200, r.status_code)
+    check(f"large batch {b} response within 512 KiB", len(r.content) <= LIMIT,
+          f"{len(r.content) / 1024:.0f} KiB")
+    big_id = (r.json().get("task") or {})["id"]
+
+r = client.get(f"/a2a/tasks/{big_id}", headers=headers(ctype=None))
+check("owner read of a large task stays within 512 KiB",
+      r.status_code == 200 and len(r.content) <= LIMIT, f"{len(r.content) / 1024:.0f} KiB")
+
+r = client.get("/a2a/tasks", headers=headers(ctype=None))
+check("owner list responds 200", r.status_code == 200, r.status_code)
+check("owner list stays within 512 KiB", len(r.content) <= LIMIT,
+      f"{len(r.content) / 1024:.0f} KiB")
+listed = r.json()["tasks"]
+check("owner list holds every task", len(listed) >= 6, len(listed))
+check("listed tasks keep identity and state",
+      all(t.get("id") and t.get("status", {}).get("state") for t in listed))
+check("listed tasks do not echo the case files",
+      not any("Case-file extract" in json.dumps(t) for t in listed))
+r = client.get("/a2a/tasks", headers=headers(TOKEN_B, ctype=None))
+check("outsider list is still empty after all that", r.json().get("tasks") == [])
+
 print("\n" + "=" * 60)
 print(f"{len(PASS)} passed, {len(FAIL)} failed")
 if FAIL:
