@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: a2a-invoice-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: A2A_DB
+        value: /tmp/a2a.db
+      # Set A2A_BASE_URL in the dashboard after the first deploy, to
+      # https://<your-service>.onrender.com/a2a/
